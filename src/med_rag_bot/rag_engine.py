@@ -198,7 +198,7 @@ class RAGEngine:
             print(f"Total processing time: {total_time:.2f} seconds")
             
             if success:
-                print(f"Successfully ingested PDF")
+                print("Successfully ingested PDF")
             else:
                 print("Failed to completely ingest PDF")
 
