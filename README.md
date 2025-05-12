@@ -55,11 +55,8 @@ poetry install
 4. Set up environment variables by creating a `.env` file:
 
 ```
-# API Keys
 PINECONE_API_KEY=your_pinecone_api_key
 GOOGLE_API_KEY=your_google_api_key
-
-# RAG Configuration
 CHUNK_SIZE=500
 CHUNK_OVERLAP=50
 EMBEDDING_MODEL=all-MiniLM-L6-v2
