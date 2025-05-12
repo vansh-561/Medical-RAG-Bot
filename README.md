@@ -87,6 +87,11 @@ poetry run streamlit run app.py
 - Pinecone
 - python-dotenv
 
+![Screenshot (83)](https://github.com/user-attachments/assets/dc4bb74b-23bd-4078-b274-696708a8cb0b)
+
+![Screenshot (82)](https://github.com/user-attachments/assets/eb4910ed-f592-455f-a2cf-7d576273e4a0)
+
+
 ## License
 
 MIT
