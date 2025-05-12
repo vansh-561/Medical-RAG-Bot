@@ -40,6 +40,8 @@ class VectorStore:
         # Initialize Pinecone client
         self.pc = Pinecone(api_key=self.api_key)
         
+        #This is a workaround for the Pinecone client
+        # to be able to use the serverless index
         # Check if index exists, create if not
         existing_indexes = [index.name for index in self.pc.list_indexes()]
         
