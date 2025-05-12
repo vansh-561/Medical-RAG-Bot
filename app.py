@@ -4,11 +4,15 @@ Streamlit app for Medical RAG Chatbot.
 
 # Ensure 'src' is in the Python path
 import os
+os.environ['STREAMLIT_FILE_WATCHER'] = 'false'
+os.environ['PYTORCH_NO_CUDA_MEMORY_CACHING'] = '1'
+
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'src')))
 
 import time
 import streamlit as st
+
 
 #from med_rag_bot.pdf_processor import PDFProcessor
 from src.med_rag_bot.embeddings import get_embedding_generator
@@ -120,21 +124,49 @@ def initialize_rag_engine(embedding_type="sentence-transformer"):
 def process_pdf_upload(uploaded_file, chunk_size, chunk_overlap):
     """Process uploaded PDF file"""
     if uploaded_file is not None:
+        # Clear any previous messages to free up memory
+        if st.session_state.messages:
+            st.session_state.messages = []
+            
         try:
             # Save uploaded file temporarily
             temp_pdf_path = f"temp_{uploaded_file.name}"
             with open(temp_pdf_path, "wb") as f:
                 f.write(uploaded_file.getbuffer())
             
+            # Free up memory from the uploaded file buffer
+            uploaded_file.close()
+            import gc
+            gc.collect()
+            
             st.info(f"Processing PDF: {uploaded_file.name}...")
             
-            # Ingest PDF using RAG engine
+            # Use smaller chunks for safer processing if file is large
+            file_size_mb = os.path.getsize(temp_pdf_path) / (1024 * 1024)
+            if file_size_mb > 5:  # If file is larger than 5MB
+                st.warning(f"Large PDF detected ({file_size_mb:.1f}MB). Adjusting chunk size for better processing.")
+                chunk_size = min(chunk_size, 250)
+                chunk_overlap = min(chunk_overlap, 25)
+            
+            # Set timeout based on file size (1 minute base + 1 minute per 5MB)
+            timeout = 60 + int(file_size_mb / 5) * 60
+            timeout = min(timeout, 600)  # Cap at 10 minutes max
+            st.info(f"Processing timeout set to {timeout//60} minutes.")
+                
+            # Ingest PDF using RAG engine with progress indicator
             start_time = time.time()
-            success = rag_engine.ingest_pdf(
-                pdf_path=temp_pdf_path,
-                chunk_size=chunk_size,
-                chunk_overlap=chunk_overlap
-            )
+            with st.spinner("Processing PDF... This may take a few moments. Check the console for progress."):
+                success = rag_engine.ingest_pdf(
+                    pdf_path=temp_pdf_path,
+                    chunk_size=chunk_size,
+                    chunk_overlap=chunk_overlap,
+                    timeout=timeout
+                )
+                
+                # Check if operation took too long
+                elapsed = time.time() - start_time
+                if elapsed > timeout * 0.9:  # If it took more than 90% of timeout
+                    st.warning(f"PDF processing took {int(elapsed/60)} minutes, which is close to the timeout limit.")
             
             # Clean up temporary file
             if os.path.exists(temp_pdf_path):
@@ -151,10 +183,23 @@ def process_pdf_upload(uploaded_file, chunk_size, chunk_overlap):
                     vector_count = stats.get("namespaces", {}).get(rag_engine.vector_store.namespace, {}).get("vector_count", 0)
                     st.info(f"📊 Index now contains {vector_count} vectors.")
             else:
-                st.error("❌ Failed to process PDF.")
+                st.error("❌ PDF processing did not complete successfully.")
+                st.info("This may be due to timeout, memory limitations, or other issues.")
+                st.info("Try with a smaller chunk size, reduce the PDF size, or simplify the PDF content.")
         
+        except TimeoutError as e:
+            st.error(f"❌ PDF processing timed out: {str(e)}")
+            st.info("The PDF is too large or complex to process. Try with a smaller chunk size or a different PDF file.")
+            if os.path.exists(temp_pdf_path):
+                os.remove(temp_pdf_path)
+        except MemoryError:
+            st.error("❌ Memory error while processing PDF.")
+            st.info("Try reducing the chunk size or using a smaller PDF file.")
+            if os.path.exists(temp_pdf_path):
+                os.remove(temp_pdf_path)
         except Exception as e:
-            st.error(f"Error processing PDF: {e}")
+            st.error(f"❌ Error processing PDF: {str(e)}")
+            st.info("Check the console for more details about the error.")
             if os.path.exists(temp_pdf_path):
                 os.remove(temp_pdf_path)
 
