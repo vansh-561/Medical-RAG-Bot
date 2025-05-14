@@ -67,7 +67,7 @@ NAMESPACE=med-textbook
 5. Run the application:
 
 ```bash
-poetry run streamlit run app.py
+poetry run streamlit run app.py --server.fileWatcherType none
 ```
 
 ## Usage
